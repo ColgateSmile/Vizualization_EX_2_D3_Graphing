@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Car Prices</title>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <style>
+    .barGroup rect {
+      cursor: pointer;
+    }
+
+    /* Define the style for the tooltip */
+    .tooltip {
+      position: absolute;
+      text-align: center;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: bold;
+      background: #f2f5f2;
+      border: 1px solid #000000;
+      border-radius: 3px;
+      pointer-events: none;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <svg> </svg>
+  <script>
+    d3.csv("cars_types.csv", function(data) {
+  // Define the SVG dimensions
+  var svgWidth = 500, svgHeight = 300;
+  var margin = { top: 20, right: 20, bottom: 30, left: 40 };
+  var width = svgWidth - margin.left - margin.right;
+  var height = svgHeight - margin.top - margin.bottom;
+
+  // Select the SVG element and set its dimensions
+  var svg = d3.select('svg')
+    .attr("width", svgWidth)
+    .attr("height", svgHeight);
+
+  // Define the tooltip element
+  var tooltip = d3.select("body")
+    .append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+  // Define the x and y scales
+  var xScale = d3.scaleBand()
+    .range([margin.left, width - margin.right])
+    .domain(data.map(function(d) { return d['car type']; }))
+    .padding(0.1);
+
+  var yScale = d3.scaleLinear()
+    .range([height - margin.bottom, margin.top])
+    .domain([0, d3.max(data, function(d) { return Math.max(+d['retail price'], +d['dealer cost']); })]).nice();
+
+  // Define the colors for the bars
+  var colors = d3.scaleOrdinal()
+    .domain(["retail price", "dealer cost"])
+    .range(["#1f77b4", "#ff7f0e"]);
+
+  // Create the x-axis and add it to the chart
+  var xAxis = svg.append("g")
+    .attr("transform", `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(xScale));
+
+  // Create the y-axis and add it to the chart
+  var yAxis = svg.append("g")
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(d3.axisLeft(yScale).ticks(null, "s"))
+    .append("text")
+    .attr("x", 2)
+    .attr("y", yScale(yScale.ticks().pop()) + 0.5)
+    .attr("dy", "0.32em")
+    .attr("fill", "#000")
+    .attr("font-weight", "bold")
+    .attr("text-anchor", "start")
+    .text("Price");
+
+  // Create the bars for each car type
+var bars = svg.selectAll(".barGroup")
+  .data(data)
+  .enter().append("g")
+    .attr("class", "barGroup")
+    .attr("transform", function(d) { return "translate(" + xScale(d['car type']) + ",0)"; });
+
+bars.selectAll("rect")
+.data(function(d) { return [{type: "retail price", value: +d['retail price']}, {type: "dealer cost", value: +d['dealer cost']}]; })
+.enter().append("rect")
+.attr("class", function(d) { return d.type.split(" ")[0]; })
+.attr("width", xScale.bandwidth())
+.attr("x", 0)
+.attr("y", function(d) { return yScale(d.value); })
+.attr("height", function(d) { return height - yScale(d.value); })
+.style("fill", function(d) { return colors(d.type); })
+.on("mouseover", function(d) {
+  tooltip.transition()
+  .duration(200)
+  .style("opacity", .9);
+  tooltip.html(d.type + ": $" + d.value)
+  .style("left", (d3.event.pageX + 10) + "px")
+  .style("top", (d3.event.pageY - 28) + "px");
+})
+.on("mouseout", function(d) {
+  tooltip.transition()
+  .duration(500)
+  .style("opacity", 0);
+});
+
+svg.append("g")
+  .attr("class", "x-axis")
+  .attr("transform", "translate(0," + (height - margin.bottom) + ")")
+  .call(d3.axisBottom(xScale));
+
+// Add the y axis
+svg.append("g")
+  .attr("class", "y-axis")
+  .attr("transform", `translate(${margin.left},0)`) // fix typo here
+  .call(d3.axisLeft(yScale).ticks(null, "s"))
+  .append("text")
+  .attr("x", 2)
+  .attr("y", yScale(yScale.ticks().pop()) + 0.5)
+  .attr("dy", "0.32em")
+  .attr("fill", "#000")
+  .attr("font-weight", "bold")
+  .attr("text-anchor", "start")
+  .text("Price");
+});
+      </script>
+    </svg>
+  </body>
+</html>
