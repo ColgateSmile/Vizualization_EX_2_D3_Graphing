@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <style>
+    .tooltip {
+      position: absolute;
+      display: none;
+      width: auto;
+      height: auto;
+      background: #515A5A;
+      border: 0 none;
+      border-radius: 4px;
+      color: #F8786B;
+      font: 12px sans-serif;
+      padding: 5px;
+      text-align: center;
+    }
+
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+    }
+  </style>
+
+  <meta charset="utf-8">
+  <title>D3 Test</title>
+  <script type="text/javascript" src="https://d3js.org/d3.v6.min.js"></script>
+  <script type="text/javascript" src="https://d3js.org/d3.v4.min.js"></script>
+
+</head>
+
+<body>
+  <div id="my_dataviz"></div>
+  <div class="tooltip"></div>
+  <script type="text/javascript">
+    // Your beautiful D3 code will go here
+
+
+    d3.csv("Fuel_Prices.csv", function (d) {
+      return { date: d3.timeParse("%m/%d/%Y")(d.Date), Petrol: d["Petrol (USD)"], Diesel: d["Diesel (USD)"] }
+    },
+
+      function (data) {
+
+        var petrol = [];
+        var diesel = [];
+        for (var i = 0; i < data.length; i++) {
+          petrol.push([data[i].date, data[i].Petrol])
+          diesel.push([data[i].date, data[i].Diesel])
+        }
+
+        console.log(diesel)
+
+        // set the dimensions and margins of the graph
+        var margin = { top: 20, right: 20, bottom: 30, left: 50 },
+          width = 1150 - margin.left - margin.right,
+          height = 550 - margin.top - margin.bottom;
+
+
+        // append the svg object to the body of the page
+        var svg = d3.select("#my_dataviz")
+          .append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+
+        var x = d3.scaleTime()
+          .domain(d3.extent(data, function (d) { return d.date; }))
+          .range([0, width]);
+        svg.append("g")
+          .attr("transform", "translate(0," + (height) + ")")
+          .call(d3.axisBottom(x));
+
+        // text label for the x axis
+        svg.append("text")
+          .attr("class", "axis-title")
+          .attr("transform",
+            "translate(" + (width / 2 - 45) + " ," +
+            (height + margin.top + 10) + ")")
+          .style("text-anchor", "middle")
+          .attr("font-size", "19px")
+          .text("Date (Year)");
+
+        var y = d3.scaleLinear()
+          .domain([0, d3.max(data, function (d) {
+            return Math.max(d.Petrol, d.Diesel);
+          })])
+          .range([height, 0]);
+        svg.append("g")
+          .call(d3.axisLeft(y))
+          .append("text")
+          .attr("x", 2)
+          .attr("y", y(y.ticks().pop()) + 0.5)
+          .attr("dy", "0.32em")
+          .attr("fill", "#000")
+          .attr("font-weight", "bold")
+          .attr("text-anchor", "start")
+          .text("USD Dollars ($)");
+
+
+        var tooltip = d3.select("div.tooltip");
+
+        // A function that change this tooltip when the leaves a point:
+        var mouseleave = function (d) {
+          tooltip
+            .style("display", "none")
+          d3.select(this).transition().duration(250)
+            .style("stroke-opacity", "0");
+
+        }
+
+
+        svg.append("path")
+          .datum(data)
+          .attr("fill", "none")
+          .attr("stroke", "red")
+          .attr("stroke-width", 3)
+          .attr("d", d3.line()
+            .x(function (d) { return x(d.date) })
+            .y(function (d) { return y(d.Petrol) })
+          );
+
+
+        svg.append("path")
+          .datum(data)
+          .attr("fill", "none")
+          .attr("stroke", "steelblue")
+          .attr("stroke-width", 3)
+          .attr("d", d3.line()
+            .x(function (d) { return x(d.date) })
+            .y(function (d) { return y(d.Diesel) })
+          );
+
+        const circleEnter1 = svg.selectAll("circle")
+          .data(petrol)
+          .enter();
+
+        const circleEnter2 = svg.selectAll("circle")
+          .data(diesel)
+          .enter();
+
+
+        circleEnter1
+          .append("svg:circle")
+          .attr('cx', d => x(d[0]))
+          .attr('cy', d => y(d[1]))
+          .attr('r', 5)
+          .attr('fill', 'blue')
+          .style("opacity", 0)
+          .on("mousemove", function (d) {
+
+            tooltip
+              .html("Petrol: " + d[1] + "$<br>Date: " + d[0])
+              .style("left", (parseInt(d3.mouse(this)[0]) + 25) + "px")
+              .style("top", (parseInt(d3.mouse(this)[1])) + "px")
+              .style("opacity", 1)
+              .style("display", "inline-block")
+          })
+          .on("mouseleave", mouseleave);
+
+        circleEnter2
+          .append("svg:circle")
+          .attr('cx', d => x(d[0]))
+          .attr('cy', d => y(d[1]))
+          .attr('r', 5)
+          .attr('fill', 'steelblue')
+          .style("opacity", 0)
+          .on("mousemove", function (d) {
+
+            tooltip
+              .html("Diesel: " + d[1] + "$<br>Date: " + d[0])
+              .style("left", (parseInt(d3.mouse(this)[0]) + 25) + "px")
+              .style("top", (parseInt(d3.mouse(this)[1])) + "px")
+              .style("opacity", 1)
+              .style("display", "inline-block")
+
+          })
+          .on("mouseleave", mouseleave);
+
+        // create a list of keys
+        var keys = ["Petrol", "Diesel"]
+
+        var color = d3.scaleOrdinal()
+          .domain(keys)
+          .range(d3.schemeSet1);
+
+        var size = 20
+        svg.selectAll("mydots")
+          .data(keys)
+          .enter()
+          .append("rect")
+          .attr("x", width)
+          .attr("y", function (d, i) { return -15 + i * (size + 2) })
+          .attr("width", 4)
+          .attr("height", size)
+          .style("fill", function (d) { return color(d) })
+
+
+        svg.selectAll("mylabels")
+          .data(keys)
+          .enter()
+          .append("text")
+          .attr("x", width - 50)
+          .attr("y", function (d, i) { return -15 + i * (size + 2) + (size / 2) })
+          .style("fill", function (d) { return color(d) })
+          .text(function (d) { return d })
+          .attr("text-anchor", "left")
+          .style("alignment-baseline", "middle")
+
+      });
+
+  </script>
+</body>
+
+</html>

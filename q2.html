@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+<style>
+.tooltip {
+  position: relative;
+  display: inline-block;
+  border-bottom: 1px dotted black;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 0;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}
+</style>
+
+        <meta charset="utf-8">
+        <title>D3 Test</title>
+        <script type="text/javascript" src="https://d3js.org/d3.v6.min.js"></script>
+	<script type="text/javascript" src="https://d3js.org/d3.v4.min.js"></script>
+
+</head>
+    <body>
+	<div id="my_dataviz"></div>
+        <script type="text/javascript">
+            // Your beautiful D3 code will go here
+
+
+d3.csv("cars.csv", function(data) {
+    
+var dataset = [];
+var cyls = [];
+for(var i=0; i<data.length;i++){
+dataset.push([data[i].HP,data[i].HwyMPG,data[i].SportsCar,data[i].SUV])
+cyls.push(data[i].Cyl)
+}
+console.log(dataset);
+
+var div = d3.select("#my_dataviz").append("div")
+	.attr("class", "tooltip")
+	.style("opacity", 0);
+
+var w = 1150;
+var h = 570;
+var padding = 55;
+console.log(d3.max(dataset, function(d) { return parseInt(d[0]); }));
+
+//Create SVG element
+var svg = d3.select("#my_dataviz")
+            .append("svg")
+            .attr("width", w)
+            .attr("height", h);
+
+
+var xScale = d3.scaleLinear()
+                     .domain([0, d3.max(dataset, function(d) { return parseInt(d[0]); })])
+                     .range([0, w - padding * 2]);
+var yScale = d3.scaleLinear()
+                     .domain([0, d3.max(dataset, function(d) { return parseInt(d[1]); })])
+                     .range([h - padding, padding]);
+var rScale = d3.scaleLinear()
+                     .domain([0, d3.max(data, function(d) { return parseInt(d.Cyl); })])
+                     .range([2, 6]);
+var xAxis = d3.axisBottom()
+                  .scale(xScale)
+			.ticks(10);
+svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", "translate(55," + (h - padding) + ")")
+    .call(xAxis);
+
+var yAxis = d3.axisLeft()
+                  .scale(yScale)
+                  .ticks(10);
+svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", "translate(" + padding + ",0)")
+    .call(yAxis);
+
+// text label for the x axis
+    svg.append("text")
+        .attr("class", "x label")             
+        .attr("transform",
+            "translate(" + (w/2 - 45) + " ," + 
+                            (h-10 ) + ")")
+        .style("text-anchor", "middle")
+        .attr("font-size","19px")
+        .text("Horse Power");
+
+svg.append("text")
+    .attr("class", "y label")
+    .attr("text-anchor", "end")
+    .attr("y", 6)
+    .attr("dy", ".55em")
+    .attr("transform", "rotate(-90)")
+    .attr("font-size","19px")
+    .text("High-Way Miles per gallon");
+
+var tooltip = d3.select("#my_dataviz")
+    .append("div")
+    .style("opacity", 0)
+    .attr("class", "tooltip")
+    .style("position", "absolute")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "2px")
+    .style("border-color", "green")
+    .style("border-radius", "5px")
+    .style("padding", "10px")
+    .style("font-family","Arial")
+    .style("font-size", "12px")
+
+
+
+  // A function that change this tooltip when the user hover a point.
+  // Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
+  var mouseover = function(d) {
+    tooltip
+      .style("opacity", 1)
+	d3.select(event.currentTarget)
+.style("fill", "lightgreen");
+ }
+
+  var mousemove = function(d) {
+    tooltip
+      .html("Retail Price: " + d.RetailPrice + "$<br>Dealer Cost: " + d.DealerCost + "$")
+      .style("left", (parseInt(d3.mouse(this)[0])+25) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+      .style("top", (parseInt(d3.mouse(this)[1])) + "px")
+.style("opacity", 1)
+  }
+
+  // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
+  var mouseleave = function(d) {
+    tooltip
+      .transition()
+      .duration(200)
+      .style("opacity", 0)
+if(d.SportsCar==1){
+	d3.select(event.currentTarget)
+	.style("fill", "red");
+}
+else if(d.SUV==1){
+	d3.select(event.currentTarget)
+	.style("fill", "yellow");
+}
+else{
+	d3.select(event.currentTarget)
+	.style("fill", "blue");
+
+}
+
+  }
+
+
+svg.selectAll("circle")
+   .data(data)
+   .enter()
+   .append("circle")
+.attr("cx", function(d) {
+    return xScale(d.HP) + padding;
+})
+.attr("cy", function(d) {
+    return yScale(d.HwyMPG);
+})
+.attr("r", function(d) {
+    return rScale(d.Cyl);
+})
+.style("fill", function(d){
+if(d.SportsCar==1)
+	return "red";
+if(d.SUV==1)
+	return "yellow";
+return "blue";
+})
+    .on("mouseover", mouseover )
+    .on("mousemove", mousemove )
+    .on("mouseleave", mouseleave );
+svg.append("circle").attr("cx",1070).attr("cy",10).attr("r", 4).style("fill", "red")
+svg.append("circle").attr("cx",1070).attr("cy",40).attr("r", 4).style("fill", "yellow")
+svg.append("circle").attr("cx",1070).attr("cy",70).attr("r", 4).style("fill", "blue")
+svg.append("text").attr("x", 1090).attr("y", 10).text("SportsCar").style("font-size", "13px").style("font-family","Arial").attr("alignment-baseline","middle")
+svg.append("text").attr("x", 1090).attr("y", 40).text("SUV").style("font-size", "13px").style("font-family","Arial").attr("alignment-baseline","middle")
+svg.append("text").attr("x", 1090).attr("y", 70).text("Other").style("font-size", "13px").style("font-family","Arial").attr("alignment-baseline","middle")
+
+
+});
+
+        </script>
+    </body>
+</html>
