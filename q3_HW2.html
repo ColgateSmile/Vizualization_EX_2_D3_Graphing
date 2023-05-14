@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 5px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            /* this is to prevent the tooltip from interfering with mouse events */
+            opacity: 0;
+            /* start off as invisible */
+            transition: 0.5s opacity;
+            /* animate the opacity */
+            z-index: 10;
+        }
+    </style>
+
+</head>
+
+<body>
+    <!-- we define a container for the graph and for the tooltip -->
+    <div id="my_dataviz"></div>
+    <div class="tooltip"></div>
+
+    <script>
+        // set the dimensions and margins of the graph
+        const margin = { top: 30, right: 30, bottom: 60, left: 50 },
+            width = 1200 - margin.left - margin.right,
+            height = 550 - margin.top - margin.bottom;
+
+        // append the svg object to the body of the page
+        const svg = d3.select("#my_dataviz")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        // a variable holding the tooltip div
+        const divTooltip = d3.select("div.tooltip")
+
+        /*   <<<<  Read the data  >>>>>   */
+        d3.csv("Fuel_Prices.csv").then(function (data) {
+
+
+            // date parser
+            const parseDate = d3.timeParse("%m/%d/%Y");
+            // format the data to include date, Petrol (USD), Diesel (USD)
+            const reformattedData = data.map(function (d) {
+                var obj = {
+                    date: parseDate(d.Date),
+                    petrol: d["Petrol (USD)"],
+                    diesel: d["Diesel (USD)"]
+                }
+                return obj;
+            });
+
+
+            // add title to the graph
+            svg.append("text")
+                .attr("x", (width / 2))
+                .attr("y", 0 - (margin.top / 2))
+                .attr("text-anchor", "middle")
+                .style("font-size", "20px")
+                .style("text-decoration", "underline")
+                .text("Fuel Prices in USD from 2010 to 2020");
+
+
+            // Add X axis
+            const x = d3.scaleTime()
+                .domain(d3.extent(reformattedData, function (d) { return d.date; }))
+                .range([0, width]);
+
+            svg.append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x).tickFormat(d3.timeFormat('%b %Y')))
+                .selectAll("text")
+                .style("font-size", "14px")
+                .attr("class", function (d) {
+                    // get the month and check if it's Jan, Apr, Jul or Oct
+                    let currentMonth = d.getMonth();
+                    if ([0, 3, 6, 9].includes(currentMonth)) {
+                        return "quarter-month";  // return a class name for the months you want to show
+                    } else {
+                        return "non-quarter-month";  // return a different class name for the months you want to hide
+                    }
+                })
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-15)");
+
+            // hide the non-quarter month labels
+            d3.selectAll(".non-quarter-month").style("opacity", 0);
+
+            // X Axis title
+            svg.append("text")
+                .attr("transform", `translate(${(width / 2)}, ${height + margin.bottom - 10})`) // Position it in the middle of the x axis
+                .style("text-anchor", "middle") // Center the text
+                .style("font-size", "20px")
+                .text("Date (month year)");
+
+            // minimum value for the Y axis
+            const min = d3.min(reformattedData, function (d) { return Math.min(d.petrol, d.diesel); })
+
+
+            // Add Y axis
+            const y = d3.scaleLinear()
+                .domain([d3.min(reformattedData, function (d) {
+                    var min = Math.min(d.petrol, d.diesel);
+                    if (min <= 0) {
+                        return 100;
+                    } else {
+                        return min - 10;
+                    }
+                    return Math.min(d.petrol, d.diesel);
+                }),
+                d3.max(reformattedData, function (d) { return Math.max(d.petrol, d.diesel); })])
+                .range([height, 0]);
+
+            svg.append("g").call(d3.axisLeft(y))
+                .selectAll("text")
+                .style("font-size", "14px")
+
+            // Y Axis title
+            svg.append("text")
+                .attr("transform", "rotate(-90)") // Rotate the text
+                .attr("y", 0 - margin.left) // Move it to the left
+                .attr("x", 0 - height / 2) // Position it in the middle of the y axis
+                .attr("dy", "1em") // Shift it down slightly
+                .style("text-anchor", "middle") // Center the text
+                .text("Price in USD");
+
+            // color palette
+            const color = d3.scaleOrdinal().domain(["Petrol", "Diesel"]).range(["#377eb8", "#e41a1c"]);
+
+            // Create a group for the legend
+            const legend = svg.append("g")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", 10)
+                .attr("text-anchor", "end")
+                .selectAll("g")
+                .data(color.domain()) // Use the domain of the color scale for the legend data
+                .enter().append("g")
+                .attr("transform", function (d, i) { return "translate(0," + i * 30 + ")"; });
+
+
+            // Add colored rectangles to the legend
+            legend.append("rect")
+                .attr("x", width - 19) // Position rectangles
+                .attr("width", 25)
+                .attr("height", 25)
+                .attr("fill", color); // Use the color scale to set fill
+
+            // Add labels to the legend
+            legend.append("text")
+                .attr("x", width - 30)
+                .attr("y", 14)
+                .attr("dy", "0.32em")
+                .style("font-size", 16)
+                .text(function (d) { return d; }); // The label text is the color scale domain value
+
+            // Add the line for petrol
+            svg.append("path")
+                .datum(reformattedData)
+                .attr("fill", "none")
+                .attr("stroke", function (d) { return color("Petrol") })
+                .attr("stroke-width", 1.5)
+                .attr("d", d3.line()
+                    .x(function (d) { return x(d.date) })
+                    .y(function (d) { return y(d.petrol) })
+                )
+                .on("mouseover", function () {
+                    // show the tooltip
+                    divTooltip.style("opacity", 1)
+                })
+                .on("mousemove", function (event) {
+                    // get the mouse position on the screen and translate it to date
+                    var mouse = d3.pointer(event, this);
+                    var mouseDate = x.invert(mouse[0]);
+                    var bisect = d3.bisector(function (d) { return d.date; }).left;
+                    var i = bisect(reformattedData, mouseDate); // returns the index to the current data item
+
+                    // update the tooltip content
+                    divTooltip.html("Petrol Price (USD): " + reformattedData[i].petrol + "<br/>" + "Date: " + d3.timeFormat("%d/%m/%Y")(reformattedData[i].date))
+                        // position the tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px")
+                })
+                .on("mouseout", function () {
+                    // hide the tooltip
+                    divTooltip.style("opacity", 0)
+                })
+
+            // Add the line for diesel
+            svg.append("path")
+                .datum(reformattedData)
+                .attr("fill", "none")
+                .attr("stroke", function (d) { return color("Diesel") })
+                .attr("stroke-width", 1.5)
+                .attr("d", d3.line()
+                    .x(function (d) { return x(d.date) })
+                    .y(function (d) { return y(d.diesel) })
+                )
+                .on("mouseover", function () {
+                    // show the tooltip
+                    divTooltip.style("opacity", 1)
+                })
+                .on("mousemove", function (event) {
+                    // get the mouse position on the screen and translate it to date
+                    var mouse = d3.pointer(event, this);
+                    var mouseDate = x.invert(mouse[0]);
+                    var bisect = d3.bisector(function (d) { return d.date; }).left;
+                    var i = bisect(reformattedData, mouseDate); // returns the index to the current data item
+                    // update the tooltip content
+                    divTooltip.html("Diesel Price (USD): " + reformattedData[i].diesel + "<br/>" + "Date: " + d3.timeFormat("%d/%m/%Y")(reformattedData[i].date))
+                        // position the tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px")
+                })
+                .on("mouseout", function () {
+                    // hide the tooltip
+                    divTooltip.style("opacity", 0)
+                })
+        })
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- ADD TITLE FOR GRAPH AND Y AXES ALSO MAKE MAP KEYS BIGGER ֱֱֱ-->
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 5px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            /* this is to prevent the tooltip from interfering with mouse events */
+            opacity: 0;
+            /* start off as invisible */
+            transition: 0.5s opacity;
+            /* animate the opacity */
+            z-index: 10;
+        }
+    </style>
+
+</head>
+
+<body>
+    <!-- we define a container for the graph and for the tooltip -->
+    <div id="my_dataviz"></div>
+    <div class="tooltip"></div>
+
+    <script>
+        // set the dimensions and margins of the graph
+        const margin = { top: 30, right: 30, bottom: 50, left: 70 },
+            width = 1200 - margin.left - margin.right,
+            height = 700 - margin.top - margin.bottom;
+
+        // append the svg object to the body of the page
+        const svg = d3.select("#my_dataviz")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+        // a variable holding the tooltip div
+        const divTooltip = d3.select("div.tooltip")
+
+        /*   <<<<  Read the data  >>>>>   */
+        d3.csv("cars_types.csv").then(function (data) {
+            console.log(data)
+
+            // list of car types
+            const carTypes = data.columns.slice(1)
+            console.log(carTypes)
+
+            // price types
+            const priceTypes = [data.at(0)[""], data.at(1)[""]]
+            console.log(priceTypes)
+
+            //reforamt the data
+            const reformattedData = carTypes.map(function (type, i) {
+                return {
+                    carType: type,
+                    retailPrice: +data.at(0)[type],
+                    dealerCost: +data.at(1)[type]
+                }
+            })
+
+            // add title to the graph
+            svg.append("text")
+                .attr("x", (width / 2))
+                .attr("y", 10 - (margin.top / 2))
+                .attr("text-anchor", "middle")
+                .style("font-size", "25px")
+                .style("text-decoration", "underline")
+                .text("Car types and their prices (dealer cost and retail price)");
+
+            // X axis
+            const x = d3.scaleBand().domain(carTypes).range([0, width]).padding(0.2)
+            svg.append("g").attr("transform", "translate(0," + height + ")").call(d3.axisBottom(x))
+                .style("font-size", "16px")
+
+
+            // X Axis title
+            svg.append("text")
+                .attr("transform", `translate(${width / 2}, ${height + margin.bottom - 10})`) // Position it in the middle of the x axis
+                .style("text-anchor", "middle") // Center the text
+                .style("font-size", "30px")
+                .text("car types");
+
+            //extract max price from the data
+            const maxPrice = d3.max(reformattedData, function (d) { return d.retailPrice })
+
+
+            // Add Y axis
+            const y = d3.scaleLinear().domain([0, maxPrice]).range([height, 0])
+
+            svg.append("g").call(d3.axisLeft(y).ticks(null, "s")).style("font-size", "18px").append("text")
+                .attr("x", -height / 2).attr("y", y(y.ticks().pop()) - 80).attr("dy", "0.32em").attr("fill", "#000")
+                .attr("text-anchor", "start")
+
+
+            // Y Axis title
+            svg.append("text")
+                .attr("transform", "rotate(-90)") // Rotate the text
+                .attr("y", 0 - margin.left) // Move it to the left
+                .attr("x", 0 - height / 2) // Position it in the middle of the y axis
+                .attr("dy", "1em") // Shift it down slightly
+                .style("text-anchor", "middle") // Center the text
+                .style("font-size", "25px")
+                .text("Price (USD)");
+
+
+            // scale for subgroups
+            const xSubgroup = d3.scaleBand().domain(priceTypes).range([0, x.bandwidth()]).padding([0.05])
+
+            // color scale
+            const color = d3.scaleOrdinal().domain(priceTypes).range(["#e41a1c", "#377eb8"])
+
+            // add bars to the graph for RetailPrice
+            svg.append("g")
+                .selectAll("g")
+                // Enter in data = loop group per group
+                .data(reformattedData)
+                .enter()
+                .append("g")
+                .attr("transform", function (d) { return "translate(" + x(d.carType) + ",0)"; })
+                .selectAll("rect")
+                .data(function (d) {
+                    return priceTypes.map(function (key) {
+                        var obj = { key: key };
+                        if (key == "retail price") {
+                            obj.value = d.retailPrice;
+                        } else {
+                            obj.value = d.dealerCost;
+                        }
+                        return obj;
+                    });
+                })
+                .enter().append("rect")
+                .attr("x", function (d) { return xSubgroup(d.key); })
+                .attr("y", function (d) { return y(d.value); })
+                .attr("width", xSubgroup.bandwidth())
+                .attr("height", function (d) { return height - y(d.value); })
+                .attr("fill", function (d) { return color(d.key); })
+                .on("mouseover", function (event, d) { // here we use set the action on mouseover (tooltip)
+                    var [x, y] = d3.pointer(event, svg.node());
+                    divTooltip.style("left", x + "px")
+                        .style("top", y + "px")
+                        .style("display", "inline-block")
+                        .style("opacity", "0.9");
+                    divTooltip.html(d.key + ":<br>" + d.value + "$");
+                    d3.select(this)
+                        .attr("fill", "lightgreen")
+                        .style("stroke", "Black")
+                        .style("stroke-width", "1.8px")
+                        .style("stroke-opacity", "1");
+                })// here we use set the action on mouseout (remove tooltip + change color back)
+                .on("mouseout", function (d) {
+                    var key = d.srcElement.__data__.key;
+                    divTooltip.style("display", "none")
+                    d3.select(this)
+                        .attr("fill", color(key))
+                        .style("stroke-opacity", "0");
+                })
+
+
+            // add legend to the graph for RetailPrice and DealerCost
+            var legend = svg.append("g")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", 20)
+                .attr("text-anchor", "end")
+                .selectAll("g")
+                .data(priceTypes.slice().reverse())
+                .enter().append("g")
+                .attr("transform", function (d, i) { return "translate(0," + i * 30 + ")"; });
+            legend.append("rect")
+                .attr("x", width - 19)
+                .attr("width", 25)
+                .attr("height", 25)
+                .attr("fill", color);
+            legend.append("text")
+                .attr("x", width - 24)
+                .attr("y", 10.5)
+                .attr("dy", "0.32em")
+                .text(function (d) { return d; });
+
+        })
+    </script>
+</body>
+
+</html>

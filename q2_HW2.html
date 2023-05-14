@@ -1,0 +1,166 @@
+<meta charset="utf-8">
+<html>
+
+<head>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        /* tooltip style */
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 5px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            /* this is to prevent the tooltip from interfering with mouse events */
+            opacity: 0;
+            /* start off as invisible */
+            transition: 0.5s opacity;
+            /* animate the opacity */
+            z-index: 10;
+        }
+    </style>
+
+</head>
+
+<body>
+    <!-- we define a container for the graph and for the tooltip -->
+    <div id="my_dataviz"></div>
+    <div class="tooltip"></div>
+
+    <script>
+        // set the dimensions and margins of the graph
+        const margin = { top: 30, right: 30, bottom: 40, left: 50 },
+            width = 1000 - margin.left - margin.right,
+            height = 700 - margin.top - margin.bottom;
+
+        // append the svg object to the body of the page
+        const svg = d3.select("#my_dataviz").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom).append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        // a variable holding the tooltip div
+        const divTooltip = d3.select("div.tooltip")
+
+        /*   <<<<  Read the data  >>>>>   */
+        d3.csv("cars.csv").then(function (data) {
+            console.log(data)
+
+            // reshape data to include only <SUV , Sports Car>  ,HP Cyl ,Hwy MPG
+            const reformattedData = data.map(function (d) {
+                var carType;
+                if (d["SUV"] == "1") {
+                    carType = "SUV";
+                } else if (d["Sports Car"] == "1") {
+                    carType = "Sports Car";
+                } else {
+                    carType = "Other";
+                }
+                var obj = {
+                    carType: carType,
+                    HP: +d["HP"],
+                    Cyl: +d["Cyl"],
+                    MPG: +d["Hwy MPG"]
+                }
+                return obj;
+            })
+
+            // add title to the graph
+            svg.append("text")
+                .attr("x", (width / 2))
+                .attr("y", 10 - (margin.top / 2))
+                .attr("text-anchor", "middle")
+                .style("font-size", "30px")
+                .style("text-decoration", "underline")
+                .text("Horse Power vs. Highway MPG");
+
+            // X axis
+            const x = d3.scaleLinear().domain([d3.min(data, d => +d.HP)-10, d3.max(data, d => +d.HP)]).range([0, width]);
+            svg.append("g").attr("transform", `translate(0, ${height})`).call(d3.axisBottom(x))
+                .style("font-size", "16px")
+
+            // X Axis title
+            svg.append("text")
+                .attr("transform", `translate(${width / 2}, ${height + margin.bottom})`) // Position it in the middle of the x axis
+                .style("text-anchor", "middle") // Center the text
+                .style("font-size", "25px")
+                .text("Horse Power");
+
+            // Add Y axis
+            const y = d3.scaleLinear().domain([0, d3.max(data, d =>+d["Hwy MPG"])+5]).range([height, 0]);
+            svg.append("g").call(d3.axisLeft(y))
+                .style("font-size", "16px")
+
+            // Y Axis title
+            svg.append("text")
+                .attr("transform", "rotate(-90)") // Rotate the text
+                .attr("y", 0 - margin.left) // Move it to the left
+                .attr("x", 0 - height / 2) // Position it in the middle of the y axis
+                .attr("dy", "1em") // Shift it down slightly
+                .style("text-anchor", "middle") // Center the text
+                .style("font-size", "20px")
+                .text("Hwy MPG")
+
+
+            // color palette perple in hexa is 
+            const color = d3.scaleOrdinal().domain(["SUV", "Sports Car", "Other"]).range(["#e41a1c", "#FFA500", "#377eb8"])
+
+            // Create a group for the legend
+            const legend = svg.append("g")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", 10)
+                .attr("text-anchor", "end")
+                .selectAll("g")
+                .data(color.domain()) // Use the domain of the color scale for the legend data
+                .enter().append("g")
+                .attr("transform", function (d, i) { return "translate(0," + i * 40 + ")"; });
+
+            // Add colored rectangles to the legend
+            legend.append("rect")
+                .attr("x", width - 55) // Position rectangles
+                .attr("width", 30)
+                .attr("height", 30)
+                .attr("fill", color); // Use the color scale to set fill
+
+            // Add labels to the legend
+            legend.append("text")
+                .attr("x", width - 60)
+                .attr("y", 9.5)
+                .attr("dy", "0.32em")
+                .style("font-size", 20)
+                .text(function (d) { return d; }); // The label text is the color scale domain value
+
+
+            // Add dots radios size is set according to Cyl, color should be defferant for each car type
+            svg.append('g').selectAll("dot").data(reformattedData).enter().append("circle")
+                .attr("cx", function (d) { return x(d.HP); })
+                .attr("cy", function (d) { return y(d.MPG); })
+                .attr("r", function (d) { return d.Cyl; })
+                .style("fill", function (d) { return color(d.carType) })
+                .style("opacity", "0.7")
+                .on("mouseover", function (event, d) {
+                    // change the color of the dot to black
+                    d3.select(this).style("fill", "black");
+                    // show the tooltip
+                    divTooltip.style("opacity", 1)
+                    // update the tooltip content
+                    divTooltip.html("Car Type: " + d.carType + "<br/>" + "HP: " + d.HP + "<br/>" + "Cyl: " + d.Cyl + "<br/>" + "MPG: " + d.MPG)
+                        // position the tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px")
+                })
+                .on("mouseout", function (event, d) {// here we use set the action on mouseout (remove tooltip + change color back)
+                    // change the color of the dot back to its original color
+                    d3.select(this).style("fill", function (d) { return color(d.carType) });
+
+                    // hide the tooltip
+                    divTooltip.style("opacity", 0)
+                })
+        })
+    </script>
+</body>
+
+</html>
